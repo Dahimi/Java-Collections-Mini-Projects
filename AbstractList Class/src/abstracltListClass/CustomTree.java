@@ -5,6 +5,8 @@ import java.util.AbstractList;
 import java.util.*;
 public class CustomTree extends AbstractList<String> implements Cloneable, Serializable {
 	Entry<String> root = new Entry("0");
+	Entry<String> nextParent = root ;
+	int currentDeth = 0 ;
 	@Override
 	public String get(int arg0) {
 		// TODO Auto-generated method stub
@@ -35,21 +37,69 @@ public class CustomTree extends AbstractList<String> implements Cloneable, Seria
 		}
 		return null ;
 	}
-	@Override
-	public boolean add(String element) {
+	private Entry getNextParent() {		
+		return nextParent;
+	}
+	private void prepareNextParent() {
 		Iterator iterator = this.iterator() ;
 		Entry<String> nextEntry ;
 		while(iterator.hasNext()) {
 			nextEntry = (Entry<String>) iterator.next() ;
-			if(nextEntry.availableToAddLeftChildren) {
-				nextEntry.addLeftChild(new Entry<String>(nextEntry , element));
-				return true ;			}
-			if(nextEntry.availableToAddRightChildren) {
-				nextEntry.addRightChild(new Entry<String>(nextEntry,element));
-				return true ;
+			if(nextEntry.isAvailableToAddChildren()) {
+				nextParent = nextEntry ;
+				return ;
 			}
 		}
+	}
+	private void moveNextParent(Entry<String> oldParent) {
+		Iterator iterator = this.iterator() ;
+		Entry<String> nextEntry ;
+		while(iterator.hasNext()) {
+			nextEntry = (Entry<String>) iterator.next() ;
+			if(nextEntry.isAvailableToAddChildren() && nextEntry.depth >= currentDeth) {
+				nextParent = nextEntry ;
+				
+				return ;
+			}
+		}
+	}
+	private void isNextParentAlive() {
+		//System.out.println("alternative parent" + nextParent.getElementName() + "ancestor " + nextParent.getParent());
+		if(nextParent.depth >=  currentDeth && nextParent.isAlive()) return ;
+		moveNextParent(nextParent);
+	}
+	@Override
+	public boolean add(String element) {	
+		//prepareNextParent();
+		 isNextParentAlive();
+		Entry<String> nextEntry = getNextParent();
+		currentDeth = nextParent.depth;
+		//System.out.println("next parent " + nextParent.getElementName());
+		if(nextEntry.availableToAddLeftChildren) {
+			nextEntry.addLeftChild(new Entry<String>(nextEntry , element));
+			prepareNextParent();
+			return true ;			}
+		if(nextEntry.availableToAddRightChildren) {
+			nextEntry.addRightChild(new Entry<String>(nextEntry,element));
+			prepareNextParent();
+			return true ;
+		}
+		
 		return false ;
+	}
+	@Override
+	public boolean remove(Object o) {
+		// TODO Auto-generated method stub
+		if(!( o instanceof String ) ) throw new UnsupportedOperationException();
+		String element = (String) o ;
+		
+		Iterator iterator = this.iterator() ;
+		Entry<String> nextEntry ;
+		while(iterator.hasNext()) {
+			nextEntry = (Entry<String>) iterator.next() ;
+			if(nextEntry.getElementName().contentEquals(element)) nextEntry.removeItself();
+		}
+		return false;
 	}
 	public String set(int index, String element) {
 		throw new UnsupportedOperationException();
@@ -77,16 +127,19 @@ public class CustomTree extends AbstractList<String> implements Cloneable, Seria
 	     String elementName;
         boolean availableToAddLeftChildren, availableToAddRightChildren;
         Entry<T> parent, leftChild, rightChild;
+        int depth ;
         public Entry(String elementName){
             this.elementName = elementName ;
             this.availableToAddRightChildren = true ;
             this.availableToAddLeftChildren = true ;
+            depth = 0 ;
         }
         public Entry(Entry<T> parent ,String elementName){
             this.elementName = elementName ;
             this.availableToAddRightChildren = true ;
             this.availableToAddLeftChildren = true ;
             this.parent = parent ;
+            this.depth = parent.depth + 1 ;
         }
         public String getElementName(){
             return elementName ;
@@ -113,6 +166,30 @@ public class CustomTree extends AbstractList<String> implements Cloneable, Seria
         public boolean hasLeftChild() {
         	return ! availableToAddLeftChildren ;
         }
+        public void removeItself() {
+        	if(leftChild != null) leftChild.removeItself();
+        	if(rightChild != null) rightChild.removeItself();
+        
+        	parent.notifyParent(this);
+        	parent = null ;
+        }
+        public boolean isAlive() {
+        	return depth == 0 || this.parent != null ; 
+        }
+		private void notifyParent(Entry<T> child) {
+			// TODO Auto-generated method stub
+			if(this.leftChild == child) {
+				this.leftChild = null ;
+				this.availableToAddLeftChildren = true ;
+			}
+			else {
+				this.rightChild = null ;
+				this.availableToAddRightChildren = true ;
+			}
+			
+		}
+		
+        
         
 	 }
 	 static class TreeIterator implements Iterator<Entry>{
